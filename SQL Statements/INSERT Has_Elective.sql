@@ -1,0 +1,17 @@
+INSERT ALL
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'CS010')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'EC010')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'EC015')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'EC140')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'EC152')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'EC154')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (0, 'CS174')
+    
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'CS010')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'EC010')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'EC015')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'EC140')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'EC152')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'EC154')
+    INTO HAS_ELECTIVE (mid, cno) VALUES (1, 'CS174')
+SELECT * FROM dual;

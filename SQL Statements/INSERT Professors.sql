@@ -1,0 +1,16 @@
+INSERT ALL
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (0, NULL, 'Venus')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (1, NULL, 'Copper')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (2, NULL, 'Jupiter')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (3, NULL, 'Mercury')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (4, NULL, 'Iron')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (5, NULL, 'Tin')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (6, NULL, 'Mars')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (7, NULL, 'Silver')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (8, NULL, 'Saturn')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (9, NULL, 'Gold')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (10, NULL, 'Moon')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (11, NULL, 'Star')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (12, NULL, 'Sun')
+    INTO PROFESSOR (pid, first_name, last_name) VALUES (13, NULL, 'Earth')
+SELECT * FROM dual;
