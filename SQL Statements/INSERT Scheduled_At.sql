@@ -1,0 +1,3 @@
+INSERT ALL
+    INTO SCHEDULED_AT (oid, tid) VALUES (0, 0)
+SELECT * FROM dual;

@@ -1,0 +1,3 @@
+INSERT ALL
+    INTO TEACHES (pid, oid) VALUES (8, 0)
+SELECT * FROM dual;
