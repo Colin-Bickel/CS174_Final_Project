@@ -5,27 +5,144 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Enrollment {
 
-    public static void addClass(Connection conn, String perm, String oid) throws SQLException{
-        String insertSQL = "INSERT INTO Enrolled_In (perm, oid) VALUES (?, ?)";
-
-        try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
-            pstmt.setString(1, perm);
-            pstmt.setString(2, oid);
-
-            int rowsInserted = pstmt.executeUpdate();
-            if (rowsInserted > 0) {
-                System.out.println("Inserted row (" + perm + ", " + oid + ") into Enrolled_In");
+    public static void testFuncResultSet(Connection conn, String perm) {
+        try(ResultSet rs = queryPassedCourses(conn, perm)) {
+            while(rs.next()) {
+                System.out.println(rs.getString("cno"));
             }
-        } catch (SQLException e) {
-            System.out.println("Failed to insert row into Enrolled_In");            
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not query prereqs.");
             System.out.println(e);
         }
     }
 
-    public static void printEnrollment(Connection conn) throws Exception {
+    public static ResultSet queryPrereqs(Connection conn, String cno) throws SQLException {
+        String queryPrereqs = "SELECT cno_req AS cno FROM Has_Prerequisite WHERE TRIM(cno_parent) = ?";
+
+        PreparedStatement pstatement = conn.prepareStatement(queryPrereqs);
+        pstatement.setString(1, cno);
+
+        return pstatement.executeQuery();
+    }
+
+    public static ResultSet queryPassedCourses(Connection conn, String perm) throws SQLException {
+        String queryPassedCourses = "SELECT (O.cno) "
+                            + "FROM Student S, Took T, Offering O "  
+                            + "WHERE S.perm = ? AND S.perm = T.perm AND T.grade >= 2.0 AND T.oid = O.oid";
+
+        PreparedStatement pstatement = conn.prepareStatement(queryPassedCourses);
+        pstatement.setString(1, perm);
+
+        return pstatement.executeQuery();
+    }
+
+    public static boolean studentMetPrereqs(Connection conn, String perm, String cno) {
+        Set<String> passedCourses = new HashSet<>();
+
+        try (ResultSet rs = queryPassedCourses(conn, perm)) {
+            while (rs.next()) {
+                passedCourses.add(rs.getString("cno"));
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not query prereqs.");
+        }
+
+        try (ResultSet rs = queryPrereqs(conn, cno)) {
+            String prereq;
+            while (rs.next()) {
+                prereq = rs.getString("cno_req");
+                if(!passedCourses.contains(prereq)) {
+                    return false;
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not query passed courses.");
+        }
+
+        return true;
+    }
+
+    public static ResultSet queryOfferingsForCourse(Connection conn, String cno) throws SQLException{
+        String year = "2025", qtr = "S"; //This needs to be updated to be most recent qtr/year!!! (only for real implementation)
+        String query = "SELECT O.oid AS oid "
+                      +"FROM Offering O "
+                      +"LEFT JOIN ( "
+                          +"SELECT E1.oid, COUNT(*) AS num_enrolled "
+                          +"FROM Enrolled_In E1 "
+                          +"GROUP BY E1.oid "
+                      +") AS E ON O.oid = E.oid "
+                      +"WHERE O.cno = ? AND O.year = ? AND O.qtr = ? "
+                      +"AND O.enroll_lim > COALESCE(E.num_enrolled, 0)";
+
+        PreparedStatement pstatement = conn.prepareStatement(query);
+        pstatement.setString(1, cno);
+        pstatement.setString(2, year);
+        pstatement.setString(3, qtr);
+        return pstatement.executeQuery();
+    }
+
+    public static String studentCanEnrollInCourse(Connection conn, String perm, String cno) {
+        try(ResultSet rs = queryOfferingsForCourse(conn, cno)) {
+
+            if(rs.getFetchSize() > 0) {
+                rs.next();
+                return rs.getString("oid");
+            }
+
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not fetch current offerings for course "+cno+".");
+        }
+
+        return "null";
+    }
+
+    public static boolean studentCanDrop(Connection conn, String perm) {
+        String query = "SELECT COUNT(*) AS num_courses FROM Enrolled_In WHERE perm = ?";
+
+        try (PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            ResultSet rs = pstatement.executeQuery();
+            rs.next();
+            if(rs.getInt("num_courses") > 1) {
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not fetch currently enrolled courses.");
+            System.out.println(e);
+        }
+
+        return false;
+    }
+
+    public static void addClass(Connection conn, String perm, String cno) {
+        String oid = studentCanEnrollInCourse(conn, perm, cno);
+        if(!oid.equals("null")) {
+            String insertSQL = "INSERT INTO Enrolled_In (perm, oid) VALUES (?, ?)";
+
+            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+                pstmt.setString(1, perm);
+                pstmt.setString(2, oid);
+
+                int rowsInserted = pstmt.executeUpdate();
+                if (rowsInserted > 0) {
+                    System.out.println("Inserted row (" + perm + ", " + oid + ") into Enrolled_In");
+                }
+            } catch (SQLException e) {
+                System.out.println("Failed to insert row into Enrolled_In");            
+                System.out.println(e);
+            }
+        }
+        else {
+            System.out.println("INFO: Could not enroll "+perm+" in course "+cno+"."); 
+        }
+    }
+
+    public static void printEnrollment(Connection conn) {
         try (Statement statement = conn.createStatement()) {
             try (
                 ResultSet resultSet = statement.executeQuery(
@@ -41,7 +158,7 @@ public class Enrollment {
                     );
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             System.out.println("ERROR: Could not fetch currently enrolled courses.");
             System.out.println(e);
         }
