@@ -1,3 +1,16 @@
 INSERT ALL
     INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (0, 900, 1020, 'T', 'Maths 3333')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (1, 600, 720, 'TR', 'Psycho 1132')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (2, 600, 660, 'MWF', 'English 1124')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (3, 840, 900, 'MWF', 'Engr 1132')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (4, 840, 900, 'MWF', 'Bio 2222')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (5, 780, 900, 'TR', 'Chem 1234')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (6, 660, 780, 'MW', 'Engr 2116')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (7, 480, 540, 'MF', 'Engr 2116')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (8, 840, 960, 'TR', 'Chem 1111')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (9, 660, 780, 'MW', 'Engr 3163')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (10, 480, 540, 'MWF', 'Engr 2116')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (11, 900, 960, 'MWR', 'Chem 3333')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (12, 840, 960, 'TR', 'Engr 1124')
+    INTO TIMESLOT (tid, start_time, end_time, day, location) VALUES (13, 480, 540, 'MWF', 'Physics 4004')
 SELECT * FROM dual;
