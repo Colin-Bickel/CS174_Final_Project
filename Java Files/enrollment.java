@@ -10,7 +10,8 @@ import java.util.Set;
 
 public class Enrollment {
 
-    public static void testFuncResultSet(Connection conn, String perm, String cno) {
+    //Modify and use this to test other functions
+    public static void testFunctions(Connection conn, String perm, String cno) {
         // try(ResultSet rs = queryOfferingsForCourse(conn, cno)) {
         //     while(rs.next()) {
         //         System.out.println(rs.getString("oid"));
@@ -19,13 +20,12 @@ public class Enrollment {
         //     System.out.println("ERROR: Could not query prereqs.");
         //     System.out.println(e);
         // }
-        String oid = oidForStudentToEnrollInCourse(conn, perm, cno);
-        System.out.println(oid);
+        dropClass(conn, perm, cno);
     }
 
     //[TESTED] This returns the results for all prerequisites given a course number
     public static ResultSet queryPrereqs(Connection conn, String cno) throws SQLException {
-        String queryPrereqs = "SELECT cno_req AS cno FROM Has_Prerequisite WHERE TRIM(cno_parent) = ?";
+        String queryPrereqs = "SELECT TRIM(cno_req) AS cno FROM Has_Prerequisite WHERE TRIM(cno_parent) = TRIM(?)";
 
         PreparedStatement pstatement = conn.prepareStatement(queryPrereqs);
         pstatement.setString(1, cno);
@@ -35,9 +35,9 @@ public class Enrollment {
 
     //[TESTED] This returns the courses which a student (perm) passed with a C or above
     public static ResultSet queryPassedCourses(Connection conn, String perm) throws SQLException {
-        String queryPassedCourses = "SELECT O.cno AS cno "
+        String queryPassedCourses = "SELECT TRIM(O.cno) AS cno "
                             + "FROM Student S, Took T, Offering O "  
-                            + "WHERE TRIM(S.perm) = ? AND S.perm = T.perm AND T.grade >= 2.0 AND T.oid = O.oid";
+                            + "WHERE TRIM(S.perm) = TRIM(?) AND S.perm = T.perm AND T.grade >= 2.0 AND T.oid = O.oid";
 
         PreparedStatement pstatement = conn.prepareStatement(queryPassedCourses);
         pstatement.setString(1, perm);
@@ -77,14 +77,14 @@ public class Enrollment {
     //[TESTED] This returns the results of all the offerings (oid) for a given course (number) in the most recent quarter (which student can enroll in)
     public static ResultSet queryOfferingsForCourse(Connection conn, String cno) throws SQLException{
         String year = "2025", qtr = "S"; //This needs to be updated to be most recent qtr/year!!! (only for real implementation)
-        String query = "SELECT O.oid AS oid "
+        String query = "SELECT TRIM(O.oid) AS oid "
                       +"FROM Offering O "
                       +"LEFT JOIN ( "
                           +"SELECT E1.oid, COUNT(*) AS num_enrolled "
                           +"FROM Enrolled_In E1 "
                           +"GROUP BY E1.oid "
                       +") E ON O.oid = E.oid "
-                      +"WHERE TRIM(O.cno) = ? AND O.year = ? AND O.qtr = ? "
+                      +"WHERE TRIM(O.cno) = TRIM(?) AND O.year = TRIM(?) AND O.qtr = TRIM(?) "
                       +"AND O.enroll_lim > COALESCE(E.num_enrolled, 0)";
 
         PreparedStatement pstatement = conn.prepareStatement(query);
@@ -94,9 +94,10 @@ public class Enrollment {
         return pstatement.executeQuery();
     }
 
-    //[TESTED] This returns the first available offering (oid) if the student can enroll in the course (cno), otherwise it returns the STRING "null"
+    //[TESTED] This returns the first available offering (oid) if the student can enroll in the course (cno)
+    //--Otherwise it returns the STRING "null"
     public static String oidForStudentToEnrollInCourse(Connection conn, String perm, String cno) {
-        if(!studentMetPrereqs(conn, perm, cno)){
+        if(!studentMetPrereqs(conn, perm, cno) || studentIsInCourse(conn, perm, cno)){
             return "null";
         }
         
@@ -115,8 +116,10 @@ public class Enrollment {
         return "null";
     }
 
+    //[TESTED] Returns T/F whether a student has more than one enrolled course (and therefore can drop a course)
+    //--Returns False if the student is not enrolled in any courses (there are none to drop)
     public static boolean studentCanDrop(Connection conn, String perm) {
-        String query = "SELECT COUNT(*) AS num_courses FROM Enrolled_In WHERE perm = ?";
+        String query = "SELECT COUNT(*) AS num_courses FROM Enrolled_In WHERE TRIM(perm) = TRIM(?)";
 
         try (PreparedStatement pstatement = conn.prepareStatement(query)) {
             pstatement.setString(1, perm);
@@ -133,26 +136,88 @@ public class Enrollment {
         return false;
     }
 
-    public static void addClass(Connection conn, String perm, String cno) {
-        String oid = oidForStudentToEnrollInCourse(conn, perm, cno);
-        if(!oid.equals("null")) {
-            String insertSQL = "INSERT INTO Enrolled_In (perm, oid) VALUES (?, ?)";
+    //[TESTED] Returns T/F if the student is currently enrolled in the course
+    public static boolean studentIsInCourse(Connection conn, String perm, String cno) {
+        String query = "SELECT COUNT(*) AS num_courses FROM Enrolled_In E, Offering O WHERE TRIM(E.perm) = TRIM(?) AND E.oid = O.oid AND TRIM(O.cno) = TRIM(?)";
 
-            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
-                pstmt.setString(1, perm);
-                pstmt.setString(2, oid);
+        try (PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            pstatement.setString(2, cno);
+            ResultSet rs = pstatement.executeQuery();
+            rs.next();
+            if(rs.getInt("num_courses") == 1) {
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not fetch currently enrolled courses.");
+            System.out.println(e);
+        }
 
-                int rowsInserted = pstmt.executeUpdate();
-                if (rowsInserted > 0) {
-                    System.out.println("Inserted row (" + perm + ", " + oid + ") into Enrolled_In");
-                }
+        return false;
+    }
+
+    public static void unenrollInClass(Connection conn, String perm, String oid) {
+        String query = "DELETE FROM Enrolled_In E WHERE TRIM(E.perm) = TRIM(?) AND TRIM(E.oid) = TRIM(?)";
+
+        try (PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            pstatement.setString(2, oid);
+            int num_rows_updated = pstatement.executeUpdate();
+            if(num_rows_updated < 1) {
+                System.out.println("INFO: No offering with oid "+oid+" could be unenrolled from student with perm "+perm+".");
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not unenroll a class.");
+            System.out.println(e);
+        }
+    }
+
+    public static void dropClass(Connection conn, String perm, String cno) {
+        if(studentCanDrop(conn, perm) && studentIsInCourse(conn, perm, cno)) {
+            String query = "SELECT TRIM(O.oid) AS oid FROM Enrolled_In E, Offering O WHERE E.oid = O.oid AND TRIM(E.perm) = TRIM(?) AND TRIM(O.cno) = TRIM(?)";
+
+            try (PreparedStatement pstatement = conn.prepareStatement(query)) {
+                pstatement.setString(1, perm);
+                pstatement.setString(2, cno);
+                ResultSet rs = pstatement.executeQuery();
+                rs.next();
+                unenrollInClass(conn, perm, rs.getString("oid"));
             } catch (SQLException e) {
-                System.out.println("Failed to insert row into Enrolled_In");            
+                System.out.println("ERROR: Could not drop a class.");
                 System.out.println(e);
             }
         }
         else {
-            System.out.println("INFO: Could not enroll "+perm+" in course "+cno+"."); 
+            System.out.println("Student with perm "+perm+" can not drop course "+cno+" because they are not in the course or they are not enrolled in more than one course.");
+        }
+    }
+
+    //[TESTED] Adds a perm,oid row into the Enrolled_In table (does not check any constraints)
+    public static void enrollInClass(Connection conn, String perm, String oid) {
+        String insertSQL = "INSERT INTO Enrolled_In (perm, oid) VALUES (?, ?)";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+            pstmt.setString(1, perm);
+            pstmt.setString(2, oid);
+
+            int rowsInserted = pstmt.executeUpdate();
+            if (rowsInserted > 0) {
+                System.out.println("Inserted row (" + perm + ", " + oid + ") into Enrolled_In");
+            }
+        } catch (SQLException e) {
+            System.out.println("Failed to insert row into Enrolled_In");            
+            System.out.println(e);
+        }
+    }
+
+    //Enrolls a student (perm) in a course (cno) if they meet all requirements and there is an available offering
+    public static void addClass(Connection conn, String perm, String cno) {
+        String oid = oidForStudentToEnrollInCourse(conn, perm, cno);
+        if(!oid.equals("null")) {
+            enrollInClass(conn, perm, oid);
+        }
+        else {
+            System.out.println("INFO: Could not enroll "+perm+" in course "+cno+". Either no offering exists or the student in ineligible to add."); 
         }
     }
 
