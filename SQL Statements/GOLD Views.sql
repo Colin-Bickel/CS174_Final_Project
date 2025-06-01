@@ -23,3 +23,17 @@ JOIN Took T ON S.perm = T.perm
 JOIN Offering O ON T.oid = O.oid   
 WHERE T.grade >= 2
 ORDER BY S.perm
+
+CREATE VIEW StudentMandatoryCourses AS
+SELECT S.perm, H.cno
+FROM Student S
+JOIN Major M ON S.mid = M.mid 
+JOIN Has_Mandatory H ON M.mid = H.mid
+ORDER BY S.perm
+
+CREATE VIEW StudentElectiveCourses AS
+SELECT S.perm, H.cno
+FROM Student S
+JOIN Major M ON S.mid = M.mid 
+JOIN Has_Elective H ON M.mid = H.mid
+ORDER BY S.perm

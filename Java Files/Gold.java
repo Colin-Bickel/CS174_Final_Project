@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Vector;
 
 public class Gold {
 
@@ -83,8 +84,101 @@ public class Gold {
         }
     }
 
-    //
+    //[TESTED] Returns the number of required electives for the student's major
+    public static int getNumRequiredElectives(Connection conn, String perm) {
+        String query = "SELECT M.no_req_electives AS num_elect "
+                       +"FROM Student S JOIN Major M ON S.mid = M.mid WHERE TRIM(perm) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            ResultSet rs = pstatement.executeQuery();
+            rs.next();
+            return rs.getInt("num_elect");
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println(e);
+        }
+
+        return 0;
+    }
+
+    //[PARTIALLY TESTED] Prints out the remaining required and elective courses for the student's major
     public static void listRequirementCheck(Connection conn, String perm) {
-        Set<String> courses = new HashSet();
+
+        Set<String> passedCourses = new HashSet();
+        Vector<String> requiredCourses = new Vector();
+        Vector<String> remainingElectives = new Vector();
+        int num_req_electives = getNumRequiredElectives(conn, perm);
+        int num_comp_electives = 0;
+
+        String query = "SELECT cno "
+                       +"FROM StudentPassedCourses SPC WHERE TRIM(perm) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            ResultSet rs = pstatement.executeQuery();        
+            while(rs.next()) {
+                passedCourses.add(rs.getString("cno"));
+            }
+
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println(e);
+        }
+
+        query = "SELECT cno "
+                       +"FROM StudentMandatoryCourses SMC WHERE TRIM(perm) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            ResultSet rs = pstatement.executeQuery();
+            String cno;
+        
+            while(rs.next()) {
+                cno = rs.getString("cno");
+                if(!passedCourses.contains(cno)) {
+                    requiredCourses.add(cno);
+                }
+            }
+
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println(e);
+        }
+
+        query = "SELECT cno "
+                       +"FROM StudentElectiveCourses SEC WHERE TRIM(perm) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            ResultSet rs = pstatement.executeQuery();
+            String cno;
+        
+            while(rs.next()) {
+                cno = rs.getString("cno");
+                if(!passedCourses.contains(cno)) {
+                    remainingElectives.add(cno);
+                }
+                else {
+                    num_comp_electives++;
+                }
+            }
+
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println(e);
+        }
+
+        System.out.println("Number of required courses remaining: "+requiredCourses.size());
+        for(String str : requiredCourses) {
+            System.out.print(str+" ");
+        }
+        System.out.println();
+        num_req_electives = (num_comp_electives >= num_req_electives) ? 0 : num_req_electives - num_comp_electives;
+        System.out.println("Number of elective courses remaining: "+num_req_electives);
+        for(String str : remainingElectives) {
+            System.out.print(str+" ");
+        }
+        System.out.println();
     }
 }
