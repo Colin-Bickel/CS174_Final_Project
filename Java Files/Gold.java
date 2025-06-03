@@ -39,19 +39,22 @@ public class Gold {
         }
     }
 
-    //[TESTED] Prints out the grade history of a given student (perm)
-    public static void listGradeHistory(Connection conn, String perm) {
+    public static ResultSet getGradeHistory(Connection conn, String perm) throws SQLException {
         String query = "SELECT year, qtr, cno, grade "
                        +"FROM StudentGradeHistory SGH WHERE TRIM(perm) = TRIM(?)";
+        PreparedStatement pstatement = conn.prepareStatement(query);
+        pstatement.setString(1, perm);
+        return pstatement.executeQuery();  
+    }
 
-        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
-            pstatement.setString(1, perm);
-            ResultSet rs = pstatement.executeQuery();
+    //[TESTED] Prints out the grade history of a given student (perm)
+    public static void listGradeHistory(Connection conn, String perm) {
+        try(ResultSet rs = getGradeHistory(conn, perm)) {
             String year = "", prev_year, qtr = "", prev_qtr, cno;
-            double grade, avg_grade = 0.0;
-            int num_courses = 0;
-            System.out.println("Year | Qtr | Course | Grade");
-            System.out.println("===========================");
+            double grade, avg_grade = 0.0, total_avg_grade = 0.0;
+            int num_courses = 0, total_num_courses = 0;
+            System.out.println("Grade History");
+            System.out.println("---------------------------");
             while(rs.next()) {
                 prev_year = year;
                 prev_qtr = qtr;
@@ -60,26 +63,34 @@ public class Gold {
                 cno = rs.getString("cno");
                 grade = Double.valueOf(rs.getString("grade"));
 
-                if((!prev_year.equals(year) || !prev_qtr.equals(qtr)) && !prev_year.equals("")) {
-                    avg_grade /= num_courses;
-                    System.out.println("Average GPA for "+prev_year+prev_qtr+": "+avg_grade);
-                    System.out.println("---------------------------");
-                    avg_grade = grade;
-                    num_courses = 1;
+                if((!prev_year.equals(year) || !prev_qtr.equals(qtr))) {
+                    if(!prev_year.equals("")) {
+                        avg_grade /= num_courses;
+                        System.out.println("Average GPA: "+avg_grade);
+                        System.out.println("---------------------------");
+                        avg_grade = grade;
+                        num_courses = 1;
+                    }
+                    System.out.println("      "+year+qtr);
                 }
                 else {
                     avg_grade += grade; //Will normalize when printing
                     num_courses++;
                 }
+                total_avg_grade += grade;
+                total_num_courses++;
 
-                System.out.println(year+" | "+qtr+" | "+cno+" | "+grade);
+                System.out.println(cno+" | "+grade);
             }
             avg_grade /= num_courses;
-            System.out.println("Average GPA for "+year+qtr+": "+avg_grade);
+            total_avg_grade /= total_num_courses;
+            System.out.println("Average GPA: "+avg_grade);
             System.out.println("---------------------------");
+            System.out.println("Total Average GPA: "+total_avg_grade);
+            System.out.println();
 
         } catch(SQLException e) {
-            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println("ERROR: Could not get grade history.");
             System.out.println(e);
         }
     }
@@ -92,10 +103,11 @@ public class Gold {
         try(PreparedStatement pstatement = conn.prepareStatement(query)) {
             pstatement.setString(1, perm);
             ResultSet rs = pstatement.executeQuery();
-            rs.next();
-            return rs.getInt("num_elect");
+            if(rs.next()) {
+                return rs.getInt("num_elect");
+            }
         } catch(SQLException e) {
-            System.out.println("ERROR: Could not list course schedule.");
+            System.out.println("ERROR: Could not query the number of required elective courses.");
             System.out.println(e);
         }
 
@@ -157,6 +169,8 @@ public class Gold {
         return requiredCourses;
     }
 
+    //[PARTIALLY TESTED] Returns the number of electives completed (can be greater than number required)
+    //Overwrites the remainingElectives array
     public static int getRemainingElectiveCourses(Connection conn, String perm, ArrayList<String> remainingElectives) {
         Set<String> passedCourses = new HashSet();
         int num_comp_electives = 0;
@@ -244,6 +258,50 @@ public class Gold {
                     System.out.println(cno);
                 }
             }
+        }
+    }
+
+    public static boolean isValidPIN(Connection conn, String perm, String PIN) {
+        String query = "SELECT COUNT(*) AS valid FROM Student S WHERE TRIM(S.perm) = TRIM(?) AND TRIM(S.pin) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, perm);
+            pstatement.setString(2, PIN);
+            ResultSet rs = pstatement.executeQuery();
+            if(rs.next()) {
+                return rs.getInt("valid") == 1;
+            }
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not verify if PIN is correct for student "+perm);
+            System.out.println(e);
+        }
+
+        return false;
+    }
+
+    public static void updatePINValue(Connection conn, String perm, String newPIN) {
+        String update = "UPDATE Student S SET S.pin = TRIM(?) WHERE TRIM(S.perm) = TRIM(?)";
+
+        try(PreparedStatement pstatement = conn.prepareStatement(update)) {
+            
+            pstatement.setString(1, newPIN);
+            pstatement.setString(2, perm);
+            int rowsUpdated = pstatement.executeUpdate();
+            if(rowsUpdated < 1) {
+                System.out.println("ERROR: Failed to change the PIN for student "+perm);
+            }
+        } catch(SQLException e) {
+            System.out.println("ERROR: Could not change the PIN for student "+perm);
+            System.out.println(e);
+        }
+    }
+
+    public static void changePIN(Connection conn, String perm, String oldPin, String newPIN) {
+        if(isValidPIN(conn, perm, oldPin)) {
+            updatePINValue(conn, perm, newPIN);
+        }
+        else {
+            System.out.println("INFO: Unable to change the PIN for student "+perm+" because their current PIN does not match the provided PIN.");
         }
     }
 }
