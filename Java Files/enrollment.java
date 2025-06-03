@@ -76,7 +76,6 @@ public class Enrollment {
 
     //[TESTED] This returns the results of all the offerings (oid) for a given course (number) in the most recent quarter (which student can enroll in)
     public static ResultSet queryOfferingsForCourse(Connection conn, String cno) throws SQLException{
-        String year = "2025", qtr = "S"; //This needs to be updated to be most recent qtr/year!!! (only for real implementation)
         String query = "SELECT TRIM(O.oid) AS oid "
                       +"FROM Offering O "
                       +"LEFT JOIN ( "
@@ -89,8 +88,8 @@ public class Enrollment {
 
         PreparedStatement pstatement = conn.prepareStatement(query);
         pstatement.setString(1, cno);
-        pstatement.setString(2, year);
-        pstatement.setString(3, qtr);
+        pstatement.setString(2, Config.CURRENT_YEAR);
+        pstatement.setString(3, Config.CURRENT_QTR);
         return pstatement.executeQuery();
     }
 
@@ -103,8 +102,7 @@ public class Enrollment {
         
         try(ResultSet rs = queryOfferingsForCourse(conn, cno)) {
 
-            if(!rs.isAfterLast()) {
-                rs.next();
+            if(rs.next()) {
                 return rs.getString("oid");
             }
 
@@ -219,6 +217,26 @@ public class Enrollment {
         else {
             System.out.println("INFO: Could not enroll "+perm+" in course "+cno+". Either no offering exists or the student in ineligible to add."); 
         }
+    }
+
+    public static boolean isCourseOffered(Connection conn, String cno) {
+        String query = "SELECT COUNT(*) AS num_courses FROM Offering O WHERE TRIM(O.cno) = TRIM(?) AND TRIM(O.year) = TRIM(?) AND TRIM(O.qtr) = TRIM(?)";
+
+        try (PreparedStatement pstatement = conn.prepareStatement(query)) {
+            pstatement.setString(1, cno);
+            pstatement.setString(2, Config.CURRENT_YEAR);
+            pstatement.setString(3, Config.CURRENT_QTR);
+
+            ResultSet rs = pstatement.executeQuery();
+            if(rs.next()) {
+                return rs.getInt("num_courses") >= 1;
+            }
+        } catch (SQLException e) {
+            System.out.println("ERROR: Could not query whether course is offered in current quarter.");            
+            System.out.println(e);
+        }
+
+        return false;
     }
 
     public static void printEnrollment(Connection conn) {
