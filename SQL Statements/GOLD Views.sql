@@ -29,11 +29,33 @@ SELECT S.perm, H.cno
 FROM Student S
 JOIN Major M ON S.mid = M.mid 
 JOIN Has_Mandatory H ON M.mid = H.mid
-ORDER BY S.perm
+ORDER BY S.perm, CASE 
+    WHEN cno IN (SELECT cno FROM CoursesArePrereqsOfRequiredCourses) THEN 1
+    ELSE 0
+  END DESC, CASE 
+    WHEN cno IN (SELECT cno FROM CoursesArePrereqsOfElectives) THEN 1
+    ELSE 0
+  END DESC, H.cno
 
 CREATE VIEW StudentElectiveCourses AS
 SELECT S.perm, H.cno
 FROM Student S
 JOIN Major M ON S.mid = M.mid 
 JOIN Has_Elective H ON M.mid = H.mid
-ORDER BY S.perm
+ORDER BY S.perm, CASE 
+    WHEN cno IN (SELECT cno FROM CoursesArePrereqsOfRequiredCourses) THEN 1
+    ELSE 0
+  END DESC, CASE 
+    WHEN cno IN (SELECT cno FROM CoursesArePrereqsOfElectives) THEN 1
+    ELSE 0
+  END DESC, H.cno
+
+CREATE VIEW CoursesArePrereqsOfRequiredCourses AS
+SELECT DISTINCT P.cno_req AS cno
+FROM Has_Prerequisite P
+WHERE P.cno_parent IN (SELECT cno FROM Has_Mandatory)
+
+CREATE VIEW CoursesArePrereqsOfElectives AS
+SELECT DISTINCT P.cno_req AS cno
+FROM Has_Prerequisite P
+WHERE P.cno_parent IN (SELECT cno FROM Has_Elective)

@@ -228,36 +228,57 @@ public class Gold {
 
     //[PARTIALLY TESTED] Prints out the courses that a student should take next quarter (to finish major requirements) provided they are able to
     public static void listCoursePlan(Connection conn, String perm) {
-        int num_courses = 0;
+        Set<String> selectedCourses = new HashSet();
         int num_req_electives = getNumRequiredElectives(conn, perm);
         ArrayList<String> remainingElectives = new ArrayList();
         ArrayList<String> requiredCourses = getRemainingRequiredCourses(conn, perm);
         int num_comp_electives = getRemainingElectiveCourses(conn, perm, remainingElectives);
+        int num_more_electives = num_req_electives > num_comp_electives ? num_comp_electives : 0;
 
-        if(!requiredCourses.isEmpty() || (num_req_electives > num_comp_electives)) {
-            System.out.println("Recommended course plan for "+Config.CURRENT_YEAR+Config.CURRENT_QTR+":");
+        if(!requiredCourses.isEmpty() || (num_more_electives > 0)) {
+            System.out.println("Recommended course plan:");
         }
         else {
             System.out.println("All major requirements met. No course plan can be offered.");
         }
 
-        for(String cno : requiredCourses) {
-            if(Enrollment.studentMetPrereqs(conn, perm, cno) && Enrollment.isCourseOffered(conn, cno) && num_courses < Config.MAX_CLASSES) {
-                System.out.println(cno);
-                num_courses++;
+        String year, qtr;
+        for(ArrayList<String> pair : Config.QTR_LIST) {
+            int num_courses = 0;
+            year = pair.get(0);
+            qtr = pair.get(1);
+            if(selectedCourses.size() >= requiredCourses.size() + (num_req_electives - num_comp_electives < 0 ? 0 : num_req_electives - num_comp_electives)) {
+                System.out.println("All major requirements would be met by "+year+qtr+".");
+                break;
             }
-        }
+            else {
+                System.out.println(year+qtr);
+                System.out.println("-----");
+            }
 
-        int min_num_additional_courses = (num_req_electives - num_comp_electives < Config.MAX_CLASSES - num_courses) ? num_req_electives - num_comp_electives : Config.MAX_CLASSES - num_courses;
-
-        if(min_num_additional_courses >= 1) {
-            System.out.println("Choose up to "+min_num_additional_courses+" courses from:");
-
-            for(String cno : remainingElectives) {
-                if(Enrollment.studentMetPrereqs(conn, perm, cno) && Enrollment.isCourseOffered(conn, cno)) {
+            for(String cno : requiredCourses) {
+                if(!selectedCourses.contains(cno) && Enrollment.studentMetPrereqs(conn, perm, cno) && Enrollment.isCourseOffered(conn, cno, year, qtr) && num_courses < Config.MAX_CLASSES) {
+                    selectedCourses.add(cno);
+                    num_courses++;
                     System.out.println(cno);
                 }
             }
+
+            int min_num_additional_courses = (num_more_electives < Config.MAX_CLASSES - num_courses) ? num_more_electives : Config.MAX_CLASSES - num_courses;
+
+            if(min_num_additional_courses >= 1) {
+                System.out.println("Choose up to "+min_num_additional_courses+" course(s) from:");
+
+                for(String cno : remainingElectives) {
+                    if(!selectedCourses.contains(cno) && Enrollment.studentMetPrereqs(conn, perm, cno) && Enrollment.isCourseOffered(conn, cno, year, qtr)) {
+                        selectedCourses.add(cno);
+                        num_courses++;
+                        num_more_electives--;
+                        System.out.println(cno);
+                    }
+                }
+            }
+            System.out.println();
         }
     }
 

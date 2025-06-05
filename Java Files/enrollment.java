@@ -219,13 +219,13 @@ public class Enrollment {
         }
     }
 
-    public static boolean isCourseOffered(Connection conn, String cno) {
+    public static boolean isCourseOffered(Connection conn, String cno, String year, String qtr) {
         String query = "SELECT COUNT(*) AS num_courses FROM Offering O WHERE TRIM(O.cno) = TRIM(?) AND TRIM(O.year) = TRIM(?) AND TRIM(O.qtr) = TRIM(?)";
 
         try (PreparedStatement pstatement = conn.prepareStatement(query)) {
             pstatement.setString(1, cno);
-            pstatement.setString(2, Config.CURRENT_YEAR);
-            pstatement.setString(3, Config.CURRENT_QTR);
+            pstatement.setString(2, year);
+            pstatement.setString(3, qtr);
 
             ResultSet rs = pstatement.executeQuery();
             if(rs.next()) {
